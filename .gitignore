@@ -1,0 +1,8 @@
+.env
+
+*.db
+*.exe
+*.out
+
+bin/
+vendor/

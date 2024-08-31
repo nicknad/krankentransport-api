@@ -1,0 +1,199 @@
+package main
+
+import (
+	"database/sql"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+type DataBase interface {
+	GetKrankenfahrten() ([]Krankenfahrt, error)
+	DeleteKrankenfahrt(id int) error
+	CreateKrankenfahrt(desc string) (Krankenfahrt, error)
+	GetUsers() ([]User, error)
+	GetUser(email string) (User, error)
+	DeleteUser(email string) error
+	CreateUser(*User) error
+}
+
+type SQLiteDatebase struct {
+	db *sql.DB
+}
+
+func NewSQLiteDatabase() (*SQLiteDatebase, error) {
+	db, err := sql.Open("sqlite3", "krankentransport.db")
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return &SQLiteDatebase{
+		db: db,
+	}, nil
+}
+
+func (s *SQLiteDatebase) GetKrankenfahrten() ([]Krankenfahrt, error) {
+	results, err := s.db.Query("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten")
+	if err != nil {
+		return nil, err
+	}
+	defer results.Close()
+
+	var fahrten []Krankenfahrt
+	for results.Next() {
+		var fahrt Krankenfahrt
+		var createdAt int64
+		var acceptedAt sql.NullInt64 // Handles NULL values
+		var acceptedBy sql.NullString
+
+		if err := results.Scan(&fahrt.Id, &fahrt.Description, &createdAt, &acceptedBy, &acceptedAt, &fahrt.Finished); err != nil {
+			return nil, err
+		}
+
+		fahrt.CreatedAt = time.Unix(createdAt, 0)
+		if acceptedAt.Valid {
+			acceptedAtTime := time.Unix(acceptedAt.Int64, 0)
+			fahrt.AcceptedAt = &acceptedAtTime
+		} else {
+			fahrt.AcceptedAt = nil
+		}
+
+		if acceptedBy.Valid {
+			fahrt.AcceptedBy = &acceptedBy.String
+		} else {
+			fahrt.AcceptedBy = nil
+		}
+
+		fahrten = append(fahrten, fahrt)
+	}
+
+	return fahrten, nil
+}
+
+func (s *SQLiteDatebase) DeleteKrankenfahrt(id int) error {
+	stmt, err := s.db.Prepare("DELETE FROM krankenfahrten WHERE id = ?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SQLiteDatebase) CreateKrankenfahrt(desc string) (Krankenfahrt, error) {
+	stmt, err := s.db.Prepare("INSERT INTO krankenfahrten (description, createdAt, finished) VALUES (?, ?, ?) RETURNING id, description, finished")
+	if err != nil {
+		return Krankenfahrt{}, err
+	}
+	defer stmt.Close()
+	unixTime := time.Now().Unix()
+	var createdFahrt Krankenfahrt
+	err = stmt.QueryRow(desc, unixTime, false).Scan(&createdFahrt.Id, &createdFahrt.Description, &createdFahrt.Finished)
+	if err != nil {
+		return Krankenfahrt{}, err
+	}
+
+	return createdFahrt, nil
+}
+
+func (s *SQLiteDatebase) GetUsers() ([]User, error) {
+	results, err := s.db.Query("SELECT email, name, role FROM users")
+	if err != nil {
+		return nil, err
+	}
+	defer results.Close()
+
+	var users []User
+	for results.Next() {
+		var user User
+
+		if err := results.Scan(&user.Email, &user.Name, &user.Role); err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
+func (s *SQLiteDatebase) GetUser(email string) (User, error) {
+	stmt, err := s.db.Prepare("SELECT email, name, passwordhash, role FROM users WHERE login = ?")
+	if err != nil {
+		return User{}, err
+	}
+	defer stmt.Close()
+
+	var foundUser User
+	err = stmt.QueryRow(email).Scan(&foundUser.Email, &foundUser.Name, &foundUser.PasswordHash, &foundUser.Role)
+	if err != nil {
+		return User{}, err
+	}
+
+	return foundUser, nil
+}
+
+func (s *SQLiteDatebase) CreateUser(email, name, password, role string) (User, error) {
+	stmt, err := s.db.Prepare("INSERT INTO users (email, name, passwordhash, role) VALUES (?, ?, ?) RETURNING email, name, role")
+	if err != nil {
+		return User{}, err
+	}
+	defer stmt.Close()
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	if err != nil {
+		return User{}, err
+	}
+
+	var createdUser User
+	err = stmt.QueryRow(email, name, string(hash), role).Scan(&createdUser.Email, &createdUser.Name, &createdUser.Role)
+	if err != nil {
+		return User{}, err
+	}
+
+	return createdUser, nil
+}
+
+func (s *SQLiteDatebase) DeleteUser(email string) error {
+	stmt, err := s.db.Prepare("DELETE FROM users WHERE email = ?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(email)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SQLiteDatebase) CreateDB() {
+
+	stmt, err := s.db.Prepare("CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, name TEXT, passwordhash TEXT, role TEXT);")
+
+	if err != nil {
+		panic(err)
+	}
+	stmt.Exec()
+
+	stmt, err = s.db.Prepare("CREATE TABLE IF NOT EXISTS krankenfahrten (id INTEGER PRIMARY KEY, description TEXT, createdAt INTEGER DEFAULT (strftime('%s', 'now')), acceptedBy TEXT, acceptedAt INTEGER, finished BOOLEAN DEFAULT 0);")
+
+	if err != nil {
+		panic(err)
+	}
+	stmt.Exec()
+}
