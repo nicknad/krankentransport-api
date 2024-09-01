@@ -144,7 +144,7 @@ func (s *SQLiteDatebase) GetUser(email string) (User, error) {
 }
 
 func (s *SQLiteDatebase) CreateUser(u *User) error {
-	stmt, err := s.db.Prepare("INSERT INTO users (email, name, passwordhash, role) VALUES (?, ?, ?) RETURNING email, name, role")
+	stmt, err := s.db.Prepare("INSERT INTO users (email, name, passwordhash, role) VALUES (?, ?, ?, ?) RETURNING email, name, role")
 	if err != nil {
 		return err
 	}

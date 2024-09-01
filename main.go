@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 )
 
@@ -24,7 +25,10 @@ func main() {
 				log.Fatal(err)
 			}
 
-			db.CreateUser(u)
+			err = db.CreateUser(u)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 
