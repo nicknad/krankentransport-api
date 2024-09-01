@@ -41,6 +41,8 @@ func main() {
 		}
 	}
 
-	s := NewAPIServer(":2209", db)
-	s.Run()
+	addr := os.Getenv("ADDR")
+	s := NewAPIServer(addr, db)
+	log.Fatal(s.Run())
+
 }

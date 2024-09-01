@@ -7,29 +7,12 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/gorilla/mux"
 )
-
-func WriteJSON(w http.ResponseWriter, status int, v any) error {
-	w.WriteHeader(status)
-	w.Header().Set("Content-Type", "application/json")
-
-	return json.NewEncoder(w).Encode(v)
-}
-
-type apiFunc func(http.ResponseWriter, *http.Request) error
 
 type ApiError struct {
 	Error string `json:"error"`
-}
-
-func makeHttpHandleFunc(f apiFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := f(w, r); err != nil {
-			WriteJSON(w, http.StatusBadRequest, ApiError{Error: err.Error()})
-		}
-	}
 }
 
 type APIServer struct {
@@ -44,15 +27,75 @@ func NewAPIServer(addr string, db DataBase) *APIServer {
 	}
 }
 
-func (s *APIServer) Run() {
-	router := mux.NewRouter()
+func (s *APIServer) Run() error {
 
-	router.HandleFunc("/login", makeHttpHandleFunc(s.handleLogin))
-	router.HandleFunc("/api/user", withJWTAuth(makeHttpHandleFunc(s.handleGetUsers), s.db))
-	router.HandleFunc("/api/krankenfahrt", withJWTAuth(makeHttpHandleFunc(s.handleKrankfahrten), s.db))
+	router := gin.Default()
+
+	// Ping test
+	router.GET("/ping", func(c *gin.Context) {
+
+		c.String(http.StatusOK, "pong")
+	})
+
+	router.POST("/login", s.handleLogin)
+
+	authGroup := router.Group("/api")
+	authGroup.Use(authenticate(s))
+	{
+		authGroup.GET("/users", s.handleGetUsers)
+		authGroup.GET("/krankenfahrten", s.handleGetKrankenfahrten)
+
+		authGroup.Use(isAdmin())
+		{
+		}
+	}
 
 	log.Println("JSON Api server running on port: ", s.listenAddr)
-	http.ListenAndServe(s.listenAddr, router)
+	return http.ListenAndServe(s.listenAddr, router)
+}
+
+func isAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		u, exists := c.Get("user")
+
+		if !exists {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		if u.(*User).Role != AdminRole {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+	}
+}
+
+func authenticate(s *APIServer) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fmt.Println("calling JWT auth middleware")
+		tokenString := c.Request.Header.Get("x-jwt-token")
+		token, err := validateJWT(tokenString)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, ApiError{Error: "permission denied"})
+			return
+		}
+
+		if !token.Valid {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, ApiError{Error: "invalid token"})
+			return
+		}
+
+		claims := token.Claims.(jwt.MapClaims)
+		mail := claims["mail"].(string)
+		u, err := s.db.GetUser(mail)
+
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, ApiError{Error: "invalid token"})
+			return
+		}
+
+		c.Set("user", u)
+	}
 }
 
 func createJWT(user *User) (string, error) {
@@ -67,29 +110,29 @@ func createJWT(user *User) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
-func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "POST" {
-		return fmt.Errorf("method not allowed %s", r.Method)
-	}
-
+func (s *APIServer) handleLogin(c *gin.Context) {
 	var req LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return err
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 
 	u, err := s.db.GetUser(req.Email)
 
 	if err != nil {
-		return err
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
 	if !u.ValidPassword(req.Password) {
-		return fmt.Errorf("not authenticated")
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 
 	token, err := createJWT(u)
 	if err != nil {
-		return err
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
 	resp := LoginResponse{
@@ -97,120 +140,39 @@ func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 		Name:  u.Name,
 	}
 
-	return WriteJSON(w, http.StatusOK, resp)
-}
-
-func permissionDenied(w http.ResponseWriter) {
-	WriteJSON(w, http.StatusForbidden, ApiError{Error: "permission denied"})
-}
-
-func withJWTAuth(handlerFunc http.HandlerFunc, db DataBase) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("calling JWT auth middleware")
-
-		tokenString := r.Header.Get("x-jwt-token")
-		token, err := validateJWT(tokenString)
-		if err != nil {
-			permissionDenied(w)
-			return
-		}
-		if !token.Valid {
-			permissionDenied(w)
-			return
-		}
-
-		claims := token.Claims.(jwt.MapClaims)
-		mail := claims["mail"].(string)
-		_, err = db.GetUser(mail)
-
-		if err != nil {
-			WriteJSON(w, http.StatusForbidden, ApiError{Error: "invalid token"})
-			return
-		}
-
-		handlerFunc(w, r)
-	}
-}
-
-func (s *APIServer) handleUsers(w http.ResponseWriter, r *http.Request) error {
-
-	if r.Method == "GET" {
-		return s.handleGetUsers(w, r)
-	}
-
-	if r.Method == "POST" {
-		return s.handleCreateUser(w, r)
-	}
-
-	if r.Method == "DELETE" {
-		return s.handleDeleteUser(w, r)
-	}
-
-	return fmt.Errorf("method not allowed")
-}
-
-func (s *APIServer) handleKrankfahrten(w http.ResponseWriter, r *http.Request) error {
-	if r.Method == "GET" {
-		return s.handleGetKrankenfahrten(w, r)
-	}
-
-	if r.Method == "POST" {
-		return s.handleCreateKrankenfahrt(w, r)
-	}
-
-	if r.Method == "DELETE" {
-		return s.handleDeleteKrankenfahrt(w, r)
-	}
-
-	return fmt.Errorf("method not allowed")
+	c.JSON(http.StatusOK, resp)
 }
 
 func validateJWT(tokenString string) (*jwt.Token, error) {
 	secret := os.Getenv("JWT_SECRET")
 
 	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
 
-		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
 		return []byte(secret), nil
 	})
 }
 
-func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) handleGetUsers(c *gin.Context) {
 	u, err := s.db.GetUsers()
 
 	if err != nil {
-		return err
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
-	return WriteJSON(w, http.StatusOK, u)
+	c.JSON(http.StatusOK, u)
 }
 
-func (s *APIServer) handleGetKrankenfahrten(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) handleGetKrankenfahrten(c *gin.Context) {
 	k, err := s.db.GetKrankenfahrten()
 
 	if err != nil {
-		return err
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
 
-	return WriteJSON(w, http.StatusOK, k)
-}
-
-func (s *APIServer) handleCreateKrankenfahrt(w http.ResponseWriter, r *http.Request) error {
-	return nil
-}
-
-func (s *APIServer) handleCreateUser(w http.ResponseWriter, r *http.Request) error {
-	return nil
-}
-
-func (s *APIServer) handleDeleteUser(w http.ResponseWriter, r *http.Request) error {
-	return nil
-}
-
-func (s *APIServer) handleDeleteKrankenfahrt(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	c.JSON(http.StatusOK, k)
 }
