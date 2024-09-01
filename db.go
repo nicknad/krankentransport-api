@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -152,13 +150,8 @@ func (s *SQLiteDatebase) CreateUser(u *User) error {
 	}
 	defer stmt.Close()
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(u.PasswordHash), 10)
-	if err != nil {
-		return err
-	}
-
 	var createdUser User
-	err = stmt.QueryRow(u.Email, u.Name, string(hash), u.Role).Scan(&createdUser.Email, &createdUser.Name, &createdUser.Role)
+	err = stmt.QueryRow(u.Email, u.Name, u.PasswordHash, u.Role).Scan(&createdUser.Email, &createdUser.Name, &createdUser.Role)
 	if err != nil {
 		return err
 	}
