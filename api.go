@@ -32,21 +32,33 @@ func makeHttpHandleFunc(f apiFunc) http.HandlerFunc {
 
 type APIServer struct {
 	listenAddr string
+	db         DataBase
 }
 
-func NewAPIServer(addr string) *APIServer {
+func NewAPIServer(addr string, db DataBase) *APIServer {
 	return &APIServer{
 		listenAddr: addr,
+		db:         db,
 	}
 }
 
 func (s *APIServer) Run() {
 	router := mux.NewRouter()
 
+	router.HandleFunc("/login", makeHttpHandleFunc(s.handleLogin))
 	router.HandleFunc("/api/user", makeHttpHandleFunc(s.handleGetUsers))
+	router.HandleFunc("/api/krankenfahrt", makeHttpHandleFunc(s.handleKrankfahrten))
 
 	log.Println("JSON Api server running on port: ", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
+}
+
+func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "POST" {
+		return fmt.Errorf("method not allowed %s", r.Method)
+	}
+
+	return nil
 }
 
 func (s *APIServer) handleUsers(w http.ResponseWriter, r *http.Request) error {
@@ -83,12 +95,23 @@ func (s *APIServer) handleKrankfahrten(w http.ResponseWriter, r *http.Request) e
 }
 
 func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) error {
+	u, err := s.db.GetUsers()
 
-	return nil
+	if err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, u)
 }
 
 func (s *APIServer) handleGetKrankenfahrten(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	k, err := s.db.GetKrankenfahrten()
+
+	if err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, k)
 }
 
 func (s *APIServer) handleCreateKrankenfahrt(w http.ResponseWriter, r *http.Request) error {

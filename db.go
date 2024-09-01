@@ -145,25 +145,25 @@ func (s *SQLiteDatebase) GetUser(email string) (User, error) {
 	return foundUser, nil
 }
 
-func (s *SQLiteDatebase) CreateUser(email, name, password, role string) (User, error) {
+func (s *SQLiteDatebase) CreateUser(u *User) error {
 	stmt, err := s.db.Prepare("INSERT INTO users (email, name, passwordhash, role) VALUES (?, ?, ?) RETURNING email, name, role")
 	if err != nil {
-		return User{}, err
+		return err
 	}
 	defer stmt.Close()
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	hash, err := bcrypt.GenerateFromPassword([]byte(u.PasswordHash), 10)
 	if err != nil {
-		return User{}, err
+		return err
 	}
 
 	var createdUser User
-	err = stmt.QueryRow(email, name, string(hash), role).Scan(&createdUser.Email, &createdUser.Name, &createdUser.Role)
+	err = stmt.QueryRow(u.Email, u.Name, string(hash), u.Role).Scan(&createdUser.Email, &createdUser.Name, &createdUser.Role)
 	if err != nil {
-		return User{}, err
+		return err
 	}
 
-	return createdUser, nil
+	return nil
 }
 
 func (s *SQLiteDatebase) DeleteUser(email string) error {

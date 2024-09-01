@@ -19,10 +19,15 @@ func main() {
 		db.CreateDB()
 		_, err := db.GetUser("root")
 		if err != nil {
-			db.CreateUser("root", "root", "password", AdminRole)
+			u, err := NewUser("root", "root", "password", AdminRole)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			db.CreateUser(u)
 		}
 	}
 
-	s := NewAPIServer(":2209")
+	s := NewAPIServer(":2209", db)
 	s.Run()
 }
