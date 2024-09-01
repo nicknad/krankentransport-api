@@ -1,4 +1,4 @@
-module github.com/nicknad/krankentransport-server
+module github.com/nicknad/krankentransport-api
 
 go 1.23.0
 
@@ -8,3 +8,7 @@ require (
 )
 
 require github.com/mattn/go-sqlite3 v1.14.22
+
+require github.com/golang-jwt/jwt/v4 v4.5.0
+
+require github.com/joho/godotenv v1.5.1

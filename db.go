@@ -8,11 +8,11 @@ import (
 )
 
 type DataBase interface {
-	GetKrankenfahrten() ([]Krankenfahrt, error)
+	GetKrankenfahrten() ([]*Krankenfahrt, error)
 	DeleteKrankenfahrt(id int) error
-	CreateKrankenfahrt(desc string) (Krankenfahrt, error)
-	GetUsers() ([]User, error)
-	GetUser(email string) (User, error)
+	CreateKrankenfahrt(desc string) (*Krankenfahrt, error)
+	GetUsers() ([]*User, error)
+	GetUser(email string) (*User, error)
 	DeleteUser(email string) error
 	CreateUser(*User) error
 }
@@ -37,16 +37,16 @@ func NewSQLiteDatabase() (*SQLiteDatebase, error) {
 	}, nil
 }
 
-func (s *SQLiteDatebase) GetKrankenfahrten() ([]Krankenfahrt, error) {
+func (s *SQLiteDatebase) GetKrankenfahrten() ([]*Krankenfahrt, error) {
 	results, err := s.db.Query("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten")
 	if err != nil {
 		return nil, err
 	}
 	defer results.Close()
 
-	var fahrten []Krankenfahrt
+	var fahrten []*Krankenfahrt
 	for results.Next() {
-		var fahrt Krankenfahrt
+		var fahrt *Krankenfahrt
 		var createdAt int64
 		var acceptedAt sql.NullInt64 // Handles NULL values
 		var acceptedBy sql.NullString
@@ -90,32 +90,32 @@ func (s *SQLiteDatebase) DeleteKrankenfahrt(id int) error {
 	return nil
 }
 
-func (s *SQLiteDatebase) CreateKrankenfahrt(desc string) (Krankenfahrt, error) {
+func (s *SQLiteDatebase) CreateKrankenfahrt(desc string) (*Krankenfahrt, error) {
 	stmt, err := s.db.Prepare("INSERT INTO krankenfahrten (description, createdAt, finished) VALUES (?, ?, ?) RETURNING id, description, finished")
 	if err != nil {
-		return Krankenfahrt{}, err
+		return nil, err
 	}
 	defer stmt.Close()
 	unixTime := time.Now().Unix()
-	var createdFahrt Krankenfahrt
+	var createdFahrt *Krankenfahrt
 	err = stmt.QueryRow(desc, unixTime, false).Scan(&createdFahrt.Id, &createdFahrt.Description, &createdFahrt.Finished)
 	if err != nil {
-		return Krankenfahrt{}, err
+		return nil, err
 	}
 
 	return createdFahrt, nil
 }
 
-func (s *SQLiteDatebase) GetUsers() ([]User, error) {
+func (s *SQLiteDatebase) GetUsers() ([]*User, error) {
 	results, err := s.db.Query("SELECT email, name, role FROM users")
 	if err != nil {
 		return nil, err
 	}
 	defer results.Close()
 
-	var users []User
+	var users []*User
 	for results.Next() {
-		var user User
+		var user *User
 
 		if err := results.Scan(&user.Email, &user.Name, &user.Role); err != nil {
 			return nil, err
@@ -127,17 +127,17 @@ func (s *SQLiteDatebase) GetUsers() ([]User, error) {
 	return users, nil
 }
 
-func (s *SQLiteDatebase) GetUser(email string) (User, error) {
+func (s *SQLiteDatebase) GetUser(email string) (*User, error) {
 	stmt, err := s.db.Prepare("SELECT email, name, passwordhash, role FROM users WHERE login = ?")
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 	defer stmt.Close()
 
-	var foundUser User
+	var foundUser *User
 	err = stmt.QueryRow(email).Scan(&foundUser.Email, &foundUser.Name, &foundUser.PasswordHash, &foundUser.Role)
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 
 	return foundUser, nil

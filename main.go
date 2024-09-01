@@ -4,9 +4,17 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	seed := flag.Bool("seed", false, "seed the db")
 	flag.Parse()
 
@@ -20,7 +28,8 @@ func main() {
 		db.CreateDB()
 		_, err := db.GetUser("root")
 		if err != nil {
-			u, err := NewUser("root", "root", "password", AdminRole)
+			password := os.Getenv("ADMINPASSWORD")
+			u, err := NewUser("root", "root", password, AdminRole)
 			if err != nil {
 				log.Fatal(err)
 			}
