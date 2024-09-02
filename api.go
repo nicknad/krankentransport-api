@@ -42,11 +42,16 @@ func (s *APIServer) Run() error {
 	authGroup := router.Group("/api")
 	authGroup.Use(authenticate(s))
 	{
-		authGroup.GET("/users", s.handleGetUsers)
-		authGroup.GET("/krankenfahrten", s.handleGetKrankenfahrten)
+		authGroup.GET("/users", s.getUsers)
+		authGroup.GET("/krankenfahrten", s.getKrankenfahrten)
+		authGroup.PATCH("/krankenfart", s.updateKrankenFahrt)
 
 		authGroup.Use(isAdmin())
 		{
+			authGroup.DELETE("/user", s.delteUser)
+			authGroup.DELETE("/krankenfahrt", s.deleteKrankenFahrt)
+			authGroup.POST("/user", s.createUser)
+			authGroup.POST("/krankenfahrt", s.createKrankenFahrt)
 		}
 	}
 
@@ -155,7 +160,7 @@ func validateJWT(tokenString string) (*jwt.Token, error) {
 	})
 }
 
-func (s *APIServer) handleGetUsers(c *gin.Context) {
+func (s *APIServer) getUsers(c *gin.Context) {
 	u, err := s.db.GetUsers()
 
 	if err != nil {
@@ -166,7 +171,7 @@ func (s *APIServer) handleGetUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, u)
 }
 
-func (s *APIServer) handleGetKrankenfahrten(c *gin.Context) {
+func (s *APIServer) getKrankenfahrten(c *gin.Context) {
 	k, err := s.db.GetKrankenfahrten()
 
 	if err != nil {
@@ -175,4 +180,19 @@ func (s *APIServer) handleGetKrankenfahrten(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, k)
+}
+
+func (s *APIServer) createKrankenFahrt(c *gin.Context) {
+}
+
+func (s *APIServer) createUser(c *gin.Context) {
+}
+
+func (s *APIServer) updateKrankenFahrt(c *gin.Context) {
+}
+
+func (s *APIServer) deleteKrankenFahrt(c *gin.Context) {
+}
+
+func (s *APIServer) delteUser(c *gin.Context) {
 }
