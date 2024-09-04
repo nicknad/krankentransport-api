@@ -128,7 +128,7 @@ func (s *SQLiteDatebase) GetUsers() ([]*User, error) {
 }
 
 func (s *SQLiteDatebase) GetUser(email string) (*User, error) {
-	stmt, err := s.db.Prepare("SELECT email, name, passwordhash, role FROM users WHERE login = ?")
+	stmt, err := s.db.Prepare("SELECT email, name, passwordhash, role FROM users WHERE email = ?")
 	if err != nil {
 		return nil, err
 	}
