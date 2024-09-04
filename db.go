@@ -13,7 +13,7 @@ type DataBase interface {
 	CreateKrankenfahrt(desc string) (*Krankenfahrt, error)
 	GetUsers() ([]*User, error)
 	GetUser(email string) (*User, error)
-	DeleteUser(email string) error
+	DeleteUser(id int64) error
 	CreateUser(*User) error
 }
 
@@ -107,7 +107,7 @@ func (s *SQLiteDatebase) CreateKrankenfahrt(desc string) (*Krankenfahrt, error) 
 }
 
 func (s *SQLiteDatebase) GetUsers() ([]*User, error) {
-	results, err := s.db.Query("SELECT email, name, role FROM users")
+	results, err := s.db.Query("SELECT id, email, name, role FROM users")
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (s *SQLiteDatebase) GetUsers() ([]*User, error) {
 	for results.Next() {
 		var user *User
 
-		if err := results.Scan(&user.Email, &user.Name, &user.Role); err != nil {
+		if err := results.Scan(&user.Id, &user.Email, &user.Name, &user.Role); err != nil {
 			return nil, err
 		}
 
@@ -144,14 +144,14 @@ func (s *SQLiteDatebase) GetUser(email string) (*User, error) {
 }
 
 func (s *SQLiteDatebase) CreateUser(u *User) error {
-	stmt, err := s.db.Prepare("INSERT INTO users (email, name, passwordhash, role) VALUES (?, ?, ?, ?) RETURNING email, name, role")
+	stmt, err := s.db.Prepare("INSERT INTO users (email, name, passwordhash, role) VALUES (?, ?, ?, ?) RETURNING id, email, name, role")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
 	var createdUser User
-	err = stmt.QueryRow(u.Email, u.Name, u.PasswordHash, u.Role).Scan(&createdUser.Email, &createdUser.Name, &createdUser.Role)
+	err = stmt.QueryRow(u.Email, u.Name, u.PasswordHash, u.Role).Scan(&createdUser.Id, &createdUser.Email, &createdUser.Name, &createdUser.Role)
 	if err != nil {
 		return err
 	}
@@ -159,14 +159,14 @@ func (s *SQLiteDatebase) CreateUser(u *User) error {
 	return nil
 }
 
-func (s *SQLiteDatebase) DeleteUser(email string) error {
-	stmt, err := s.db.Prepare("DELETE FROM users WHERE email = ?")
+func (s *SQLiteDatebase) DeleteUser(id int64) error {
+	stmt, err := s.db.Prepare("DELETE FROM users WHERE id = ?")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(email)
+	_, err = stmt.Exec(id)
 	if err != nil {
 		return err
 	}
@@ -176,8 +176,15 @@ func (s *SQLiteDatebase) DeleteUser(email string) error {
 
 func (s *SQLiteDatebase) CreateDB() {
 
-	stmt, err := s.db.Prepare("CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, name TEXT, passwordhash TEXT, role TEXT);")
+	stmt, err := s.db.Prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT, name TEXT, passwordhash TEXT, role TEXT);")
 
+	if err != nil {
+		panic(err)
+	}
+	stmt.Exec()
+
+	// add a unique constraint to the email column if it does not exists
+	stmt, err = s.db.Prepare("CREATE UNIQUE INDEX IF NOT EXISTS user_unique ON users (email);")
 	if err != nil {
 		panic(err)
 	}

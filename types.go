@@ -8,6 +8,18 @@ import (
 
 const AdminRole = "Admin"
 
+type CreateFahrtRequest struct {
+	Description string `json:"description"`
+}
+
+type DeleteUserRequest struct {
+	Email string `json:"email"`
+}
+
+type ClaimKrankenfahrtRequest struct {
+	Id int64 `json:"id"`
+}
+
 type CreateUserRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -25,6 +37,7 @@ type LoginResponse struct {
 }
 
 type User struct {
+	Id           int64  `json:"id"`
 	Email        string `json:"email"`
 	PasswordHash string `json:"-"`
 	Name         string `json:"name"`
