@@ -8,10 +8,10 @@ import (
 )
 
 type DataBase interface {
-	GetKrankenfahrten() ([]*Krankenfahrt, error)
+	GetKrankenfahrten() (*[]Krankenfahrt, error)
 	DeleteKrankenfahrt(id int) error
 	CreateKrankenfahrt(desc string) (*Krankenfahrt, error)
-	GetUsers() ([]*User, error)
+	GetUsers() (*[]User, error)
 	GetUser(email string) (*User, error)
 	DeleteUser(id int64) error
 	CreateUser(*User) error
@@ -37,16 +37,16 @@ func NewSQLiteDatabase() (*SQLiteDatebase, error) {
 	}, nil
 }
 
-func (s *SQLiteDatebase) GetKrankenfahrten() ([]*Krankenfahrt, error) {
+func (s *SQLiteDatebase) GetKrankenfahrten() (*[]Krankenfahrt, error) {
 	results, err := s.db.Query("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten")
 	if err != nil {
 		return nil, err
 	}
 	defer results.Close()
 
-	var fahrten []*Krankenfahrt
+	var fahrten []Krankenfahrt
 	for results.Next() {
-		var fahrt *Krankenfahrt
+		var fahrt Krankenfahrt
 		var createdAt int64
 		var acceptedAt sql.NullInt64 // Handles NULL values
 		var acceptedBy sql.NullString
@@ -72,7 +72,7 @@ func (s *SQLiteDatebase) GetKrankenfahrten() ([]*Krankenfahrt, error) {
 		fahrten = append(fahrten, fahrt)
 	}
 
-	return fahrten, nil
+	return &fahrten, nil
 }
 
 func (s *SQLiteDatebase) DeleteKrankenfahrt(id int) error {
@@ -97,25 +97,25 @@ func (s *SQLiteDatebase) CreateKrankenfahrt(desc string) (*Krankenfahrt, error) 
 	}
 	defer stmt.Close()
 	unixTime := time.Now().Unix()
-	var createdFahrt *Krankenfahrt
+	var createdFahrt Krankenfahrt
 	err = stmt.QueryRow(desc, unixTime, false).Scan(&createdFahrt.Id, &createdFahrt.Description, &createdFahrt.Finished)
 	if err != nil {
 		return nil, err
 	}
 
-	return createdFahrt, nil
+	return &createdFahrt, nil
 }
 
-func (s *SQLiteDatebase) GetUsers() ([]*User, error) {
+func (s *SQLiteDatebase) GetUsers() (*[]User, error) {
 	results, err := s.db.Query("SELECT id, email, name, role FROM users")
 	if err != nil {
 		return nil, err
 	}
 	defer results.Close()
 
-	var users []*User
+	var users []User
 	for results.Next() {
-		var user *User
+		var user User
 
 		if err := results.Scan(&user.Id, &user.Email, &user.Name, &user.Role); err != nil {
 			return nil, err
@@ -124,7 +124,7 @@ func (s *SQLiteDatebase) GetUsers() ([]*User, error) {
 		users = append(users, user)
 	}
 
-	return users, nil
+	return &users, nil
 }
 
 func (s *SQLiteDatebase) GetUser(email string) (*User, error) {
@@ -134,13 +134,13 @@ func (s *SQLiteDatebase) GetUser(email string) (*User, error) {
 	}
 	defer stmt.Close()
 
-	var foundUser *User
+	var foundUser User
 	err = stmt.QueryRow(email).Scan(&foundUser.Email, &foundUser.Name, &foundUser.PasswordHash, &foundUser.Role)
 	if err != nil {
 		return nil, err
 	}
 
-	return foundUser, nil
+	return &foundUser, nil
 }
 
 func (s *SQLiteDatebase) CreateUser(u *User) error {
