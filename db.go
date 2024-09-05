@@ -9,11 +9,13 @@ import (
 
 type DataBase interface {
 	GetKrankenfahrten() (*[]Krankenfahrt, error)
+	GetKrankenfahrt(id int) (*Krankenfahrt, error)
+	UpdateKrankenfahrt(*Krankenfahrt) error
 	DeleteKrankenfahrt(id int) error
 	CreateKrankenfahrt(desc string) (*Krankenfahrt, error)
 	GetUsers() (*[]User, error)
 	GetUser(email string) (*User, error)
-	DeleteUser(id int64) error
+	DeleteUser(id int) error
 	CreateUser(*User) error
 }
 
@@ -73,6 +75,40 @@ func (s *SQLiteDatebase) GetKrankenfahrten() (*[]Krankenfahrt, error) {
 	}
 
 	return &fahrten, nil
+}
+
+func (s *SQLiteDatebase) GetKrankenfahrt(id int) (*Krankenfahrt, error) {
+
+	stmt, err := s.db.Prepare("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten WHERE id ?")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	var fahrt Krankenfahrt
+	var createdAt int64
+	var acceptedAt sql.NullInt64 // Handles NULL values
+	var acceptedBy sql.NullString
+
+	if err := stmt.QueryRow(id).Scan(&fahrt.Id, &fahrt.Description, &createdAt, &acceptedBy, &acceptedAt, &fahrt.Finished); err != nil {
+		return nil, err
+	}
+
+	fahrt.CreatedAt = time.Unix(createdAt, 0)
+	if acceptedAt.Valid {
+		acceptedAtTime := time.Unix(acceptedAt.Int64, 0)
+		fahrt.AcceptedAt = &acceptedAtTime
+	} else {
+		fahrt.AcceptedAt = nil
+	}
+
+	if acceptedBy.Valid {
+		fahrt.AcceptedBy = &acceptedBy.String
+	} else {
+		fahrt.AcceptedBy = nil
+	}
+
+	return &fahrt, nil
 }
 
 func (s *SQLiteDatebase) DeleteKrankenfahrt(id int) error {
@@ -159,7 +195,7 @@ func (s *SQLiteDatebase) CreateUser(u *User) error {
 	return nil
 }
 
-func (s *SQLiteDatebase) DeleteUser(id int64) error {
+func (s *SQLiteDatebase) DeleteUser(id int) error {
 	stmt, err := s.db.Prepare("DELETE FROM users WHERE id = ?")
 	if err != nil {
 		return err
@@ -167,6 +203,25 @@ func (s *SQLiteDatebase) DeleteUser(id int64) error {
 	defer stmt.Close()
 
 	_, err = stmt.Exec(id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SQLiteDatebase) UpdateKrankenfahrt(k *Krankenfahrt) error {
+	stmt, err := s.db.Prepare("Update krankenfahrten SET description = ?,acceptedAt = ?, acceptedByLogin = ?, finished = ? WHERE id = ?")
+
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	timeInt := k.AcceptedAt.Unix()
+	_, err = stmt.Exec(&k.Description, timeInt, &k.AcceptedBy, &k.Finished, &k.Id)
+
 	if err != nil {
 		return err
 	}

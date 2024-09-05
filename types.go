@@ -17,7 +17,7 @@ type DeleteUserRequest struct {
 }
 
 type ClaimKrankenfahrtRequest struct {
-	Id int64 `json:"id"`
+	Id int `json:"id"`
 }
 
 type CreateUserRequest struct {
@@ -37,7 +37,7 @@ type LoginResponse struct {
 }
 
 type User struct {
-	Id           int64  `json:"id"`
+	Id           int    `json:"id"`
 	Email        string `json:"email"`
 	PasswordHash string `json:"-"`
 	Name         string `json:"name"`
@@ -63,7 +63,7 @@ func NewUser(email, name, password, role string) (*User, error) {
 }
 
 type Krankenfahrt struct {
-	Id          int64      `json:"id"`
+	Id          int        `json:"id"`
 	Description string     `json:"description"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	AcceptedBy  *string    `json:"acceptedBy"`

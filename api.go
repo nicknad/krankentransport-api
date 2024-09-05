@@ -6,6 +6,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	jwt "github.com/golang-jwt/jwt/v4"
@@ -48,7 +51,7 @@ func (s *APIServer) Run() error {
 
 		authGroup.Use(isAdmin())
 		{
-			authGroup.DELETE("/user", s.delteUser)
+			authGroup.DELETE("/user", s.deleteUser)
 			authGroup.DELETE("/krankenfahrt", s.deleteKrankenFahrt)
 			authGroup.POST("/user", s.createUser)
 			authGroup.POST("/krankenfahrt", s.createKrankenFahrt)
@@ -78,14 +81,23 @@ func isAdmin() gin.HandlerFunc {
 func authenticate(s *APIServer) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		fmt.Println("calling JWT auth middleware")
-		tokenString := c.Request.Header.Get("x-jwt-token")
-		token, err := validateJWT(tokenString)
+		tokenAuth := c.Request.Header.Get("Authorization")
+		if !strings.HasPrefix(tokenAuth, "Bearer") {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		var arr = strings.SplitN(tokenAuth, " ", 2)
+		token, err := validateJWT(arr[1])
+
 		if err != nil {
+			fmt.Println(err.Error())
 			c.AbortWithStatusJSON(http.StatusUnauthorized, ApiError{Error: "permission denied"})
 			return
 		}
 
 		if !token.Valid {
+			fmt.Println("Inv)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, ApiError{Error: "invalid token"})
 			return
 		}
@@ -183,16 +195,90 @@ func (s *APIServer) getKrankenfahrten(c *gin.Context) {
 }
 
 func (s *APIServer) createKrankenFahrt(c *gin.Context) {
+	var req CreateFahrtRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
 }
 
 func (s *APIServer) createUser(c *gin.Context) {
+	var req CreateUserRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	u, err := NewUser(req.Name, req.Email, req.Password, "User")
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	s.db.CreateUser(u)
+
+	c.JSON(http.StatusOK, nil)
 }
 
 func (s *APIServer) updateKrankenFahrt(c *gin.Context) {
+	var req ClaimKrankenfahrtRequest
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	k, err := s.db.GetKrankenfahrt(req.Id)
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	u, exists := c.Get("user")
+
+	if !exists {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	t := time.Now()
+	k.AcceptedAt = &t
+	k.AcceptedBy = &u.(*User).Name
+
+	err = s.db.UpdateKrankenfahrt(k)
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+	}
+
+	c.JSON(http.StatusOK, nil)
 }
 
 func (s *APIServer) deleteKrankenFahrt(c *gin.Context) {
+	str := c.Query("Id")
+	if str == "" {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	i, err := strconv.Atoi(str)
+
+	if err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	err = s.db.DeleteKrankenfahrt(i)
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, "")
 }
 
-func (s *APIServer) delteUser(c *gin.Context) {
+func (s *APIServer) deleteUser(c *gin.Context) {
+
 }
