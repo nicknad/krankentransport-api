@@ -97,7 +97,6 @@ func authenticate(s *APIServer) gin.HandlerFunc {
 		}
 
 		if !token.Valid {
-			fmt.Println("Inv)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, ApiError{Error: "invalid token"})
 			return
 		}
