@@ -199,6 +199,30 @@ func (s *APIServer) createKrankenFahrt(c *gin.Context) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
+
+	k, err := s.db.CreateKrankenfahrt(req.Description)
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	us, err := s.db.GetUsers()
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	for _, u := range *us {
+		if u.Role == AdminRole {
+			continue
+		}
+
+		fmt.Println("Neue Krankenfahrt: {s} \n Email an {s}", k.Description, u.Email)
+	}
+
+	c.JSON(http.StatusOK, "")
 }
 
 func (s *APIServer) createUser(c *gin.Context) {
@@ -279,5 +303,26 @@ func (s *APIServer) deleteKrankenFahrt(c *gin.Context) {
 }
 
 func (s *APIServer) deleteUser(c *gin.Context) {
+	str := c.Query("Id")
+	if str == "" {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	i, err := strconv.Atoi(str)
+
+	if err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	err = s.db.DeleteUser(i)
+
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, "")
 
 }
