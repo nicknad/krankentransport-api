@@ -233,7 +233,7 @@ func (s *APIServer) createUser(c *gin.Context) {
 		return
 	}
 
-	u, err := NewUser(req.Name, req.Email, req.Password, "User")
+	u, err := NewUser(req.Email, req.Name, req.Password, "User")
 
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
