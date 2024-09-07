@@ -33,7 +33,7 @@ func NewAPIServer(addr string, db DataBase) *APIServer {
 func (s *APIServer) Run() error {
 
 	router := gin.Default()
-
+	gin.SetMode(gin.ReleaseMode)
 	// Ping test
 	router.GET("/ping", func(c *gin.Context) {
 

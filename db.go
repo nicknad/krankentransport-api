@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"os"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -24,7 +25,10 @@ type SQLiteDatebase struct {
 }
 
 func NewSQLiteDatabase() (*SQLiteDatebase, error) {
-	db, err := sql.Open("sqlite3", "krankentransport.db")
+
+	path := os.Getenv("DATABASE")
+
+	db, err := sql.Open("sqlite3", path)
 
 	if err != nil {
 		return nil, err
