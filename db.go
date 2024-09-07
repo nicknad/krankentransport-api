@@ -40,7 +40,7 @@ func NewSQLiteDatabase() (*SQLiteDatebase, error) {
 }
 
 func (s *SQLiteDatebase) GetKrankenfahrten() (*[]Krankenfahrt, error) {
-	results, err := s.db.Query("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten")
+	results, err := s.db.Query("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten;")
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (s *SQLiteDatebase) GetKrankenfahrten() (*[]Krankenfahrt, error) {
 
 func (s *SQLiteDatebase) GetKrankenfahrt(id int) (*Krankenfahrt, error) {
 
-	stmt, err := s.db.Prepare("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten WHERE id = ?")
+	stmt, err := s.db.Prepare("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten WHERE id = ?;")
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (s *SQLiteDatebase) GetKrankenfahrt(id int) (*Krankenfahrt, error) {
 }
 
 func (s *SQLiteDatebase) DeleteKrankenfahrt(id int) error {
-	stmt, err := s.db.Prepare("DELETE FROM krankenfahrten WHERE id = ?")
+	stmt, err := s.db.Prepare("DELETE FROM krankenfahrten WHERE id = ?;")
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (s *SQLiteDatebase) DeleteKrankenfahrt(id int) error {
 }
 
 func (s *SQLiteDatebase) CreateKrankenfahrt(desc string) (*Krankenfahrt, error) {
-	stmt, err := s.db.Prepare("INSERT INTO krankenfahrten (description, createdAt, finished) VALUES (?, ?, ?) RETURNING id, description, finished")
+	stmt, err := s.db.Prepare("INSERT INTO krankenfahrten (description, createdAt, finished) VALUES (?, ?, ?) RETURNING id, description, finished;")
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (s *SQLiteDatebase) CreateKrankenfahrt(desc string) (*Krankenfahrt, error) 
 }
 
 func (s *SQLiteDatebase) GetUsers() (*[]User, error) {
-	results, err := s.db.Query("SELECT id, email, name, role FROM users")
+	results, err := s.db.Query("SELECT id, email, name, role FROM users;")
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (s *SQLiteDatebase) GetUsers() (*[]User, error) {
 }
 
 func (s *SQLiteDatebase) GetUser(email string) (*User, error) {
-	stmt, err := s.db.Prepare("SELECT email, name, passwordhash, role FROM users WHERE email = ?")
+	stmt, err := s.db.Prepare("SELECT email, name, passwordhash, role FROM users WHERE email = ?;")
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (s *SQLiteDatebase) GetUser(email string) (*User, error) {
 }
 
 func (s *SQLiteDatebase) CreateUser(u *User) error {
-	stmt, err := s.db.Prepare("INSERT INTO users (email, name, passwordhash, role) VALUES (?, ?, ?, ?) RETURNING id, email, name, role")
+	stmt, err := s.db.Prepare("INSERT INTO users (email, name, passwordhash, role) VALUES (?, ?, ?, ?) RETURNING id, email, name, role;")
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func (s *SQLiteDatebase) CreateUser(u *User) error {
 }
 
 func (s *SQLiteDatebase) DeleteUser(id int) error {
-	stmt, err := s.db.Prepare("DELETE FROM users WHERE id = ?")
+	stmt, err := s.db.Prepare("DELETE FROM users WHERE id = ?;")
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (s *SQLiteDatebase) DeleteUser(id int) error {
 }
 
 func (s *SQLiteDatebase) UpdateKrankenfahrt(k Krankenfahrt) error {
-	stmt, err := s.db.Prepare("Update krankenfahrten SET description = ?,acceptedAt = ?, acceptedBy = ?, finished = ? WHERE id = ?")
+	stmt, err := s.db.Prepare("Update krankenfahrten SET description = ?,acceptedAt = ?, acceptedBy = ?, finished = ? WHERE id = ?;")
 
 	if err != nil {
 		return err

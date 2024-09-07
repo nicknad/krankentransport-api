@@ -76,7 +76,7 @@ func TestDBKrankenfahrt(t *testing.T) {
 		t.Fatalf("AcceptedBy Dont match")
 	}
 
-	err = db.DeleteKrankenfahrt(k.Id)
+	err = db.DeleteKrankenfahrt(k2.Id)
 
 	if err != nil {
 		t.Fatalf(`Err %v`, err)
