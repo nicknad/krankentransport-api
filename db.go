@@ -10,7 +10,7 @@ import (
 type DataBase interface {
 	GetKrankenfahrten() (*[]Krankenfahrt, error)
 	GetKrankenfahrt(id int) (*Krankenfahrt, error)
-	UpdateKrankenfahrt(*Krankenfahrt) error
+	UpdateKrankenfahrt(Krankenfahrt) error
 	DeleteKrankenfahrt(id int) error
 	CreateKrankenfahrt(desc string) (*Krankenfahrt, error)
 	GetUsers() (*[]User, error)
@@ -79,7 +79,7 @@ func (s *SQLiteDatebase) GetKrankenfahrten() (*[]Krankenfahrt, error) {
 
 func (s *SQLiteDatebase) GetKrankenfahrt(id int) (*Krankenfahrt, error) {
 
-	stmt, err := s.db.Prepare("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten WHERE id ?")
+	stmt, err := s.db.Prepare("SELECT id, description, createdAt, acceptedBy, acceptedAt, finished FROM krankenfahrten WHERE id = ?")
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +210,8 @@ func (s *SQLiteDatebase) DeleteUser(id int) error {
 	return nil
 }
 
-func (s *SQLiteDatebase) UpdateKrankenfahrt(k *Krankenfahrt) error {
-	stmt, err := s.db.Prepare("Update krankenfahrten SET description = ?,acceptedAt = ?, acceptedByLogin = ?, finished = ? WHERE id = ?")
+func (s *SQLiteDatebase) UpdateKrankenfahrt(k Krankenfahrt) error {
+	stmt, err := s.db.Prepare("Update krankenfahrten SET description = ?,acceptedAt = ?, acceptedBy = ?, finished = ? WHERE id = ?")
 
 	if err != nil {
 		return err
@@ -220,7 +220,7 @@ func (s *SQLiteDatebase) UpdateKrankenfahrt(k *Krankenfahrt) error {
 	defer stmt.Close()
 
 	timeInt := k.AcceptedAt.Unix()
-	_, err = stmt.Exec(&k.Description, timeInt, &k.AcceptedBy, &k.Finished, &k.Id)
+	_, err = stmt.Exec(k.Description, timeInt, k.AcceptedBy, k.Finished, k.Id)
 
 	if err != nil {
 		return err

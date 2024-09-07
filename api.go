@@ -219,7 +219,8 @@ func (s *APIServer) createKrankenFahrt(c *gin.Context) {
 			continue
 		}
 
-		fmt.Println("Neue Krankenfahrt: {s} \n Email an {s}", k.Description, u.Email)
+		fmt.Printf("Neue Krankenfahrt: %v \n Email an %v \n", k.Description, u.Email)
+
 	}
 
 	c.JSON(http.StatusOK, "")
@@ -269,7 +270,7 @@ func (s *APIServer) updateKrankenFahrt(c *gin.Context) {
 	k.AcceptedAt = &t
 	k.AcceptedBy = &u.(*User).Name
 
-	err = s.db.UpdateKrankenfahrt(k)
+	err = s.db.UpdateKrankenfahrt(*k)
 
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -279,7 +280,7 @@ func (s *APIServer) updateKrankenFahrt(c *gin.Context) {
 }
 
 func (s *APIServer) deleteKrankenFahrt(c *gin.Context) {
-	str := c.Query("Id")
+	str := c.Query("id")
 	if str == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -303,7 +304,7 @@ func (s *APIServer) deleteKrankenFahrt(c *gin.Context) {
 }
 
 func (s *APIServer) deleteUser(c *gin.Context) {
-	str := c.Query("Id")
+	str := c.Query("id")
 	if str == "" {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
