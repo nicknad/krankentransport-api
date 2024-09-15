@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/smtp"
 	"os"
 	"strconv"
 	"strings"
@@ -102,6 +103,14 @@ func authenticate(s *APIServer) gin.HandlerFunc {
 		}
 
 		claims := token.Claims.(jwt.MapClaims)
+
+		expiredAt := claims["expiresAt"].(int64)
+		currentTime := time.Now().Unix()
+		if expiredAt < currentTime {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, ApiError{Error: "token expired"})
+			return
+		}
+
 		mail := claims["mail"].(string)
 		u, err := s.db.GetUser(mail)
 
@@ -116,7 +125,7 @@ func authenticate(s *APIServer) gin.HandlerFunc {
 
 func createJWT(user *User) (string, error) {
 	claims := &jwt.MapClaims{
-		"expiresAt": 15000,
+		"expiresAt": time.Now().Unix() + 15000,
 		"mail":      user.Email,
 	}
 
@@ -214,13 +223,29 @@ func (s *APIServer) createKrankenFahrt(c *gin.Context) {
 		return
 	}
 
+	mailUser := os.Getenv("MAIL_USER")
+	mailPassword := os.Getenv("MAIL_PASSWORD")
+	mailHost := os.Getenv("MAIL_HOST")
+	mailPort := os.Getenv("MAIL_PORT")
+
+	auth := smtp.PlainAuth("", mailUser, mailPassword, mailHost)
+
 	for _, u := range *us {
 		if u.Role == AdminRole {
 			continue
 		}
 
-		fmt.Printf("Neue Krankenfahrt: %v \n Email an %v \n", k.Description, u.Email)
+		to := []string{u.Email}
 
+		msgString := fmt.Sprintf("Hallo %v, \r\n Eine neue Krankenfahrt wurde veröffentlicht. \r\n %v \r\n \r\n Mit freundlichen Grüßen \r\n Taxi Innung", u.Name, k.Description)
+
+		msg := []byte(msgString)
+
+		err := smtp.SendMail(mailHost+":"+mailPort, auth, mailUser, to, msg)
+
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	c.JSON(http.StatusOK, "")
